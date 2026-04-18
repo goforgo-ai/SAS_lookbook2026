@@ -173,22 +173,36 @@ function renderCards(){
 }
 
 function loadIntel(){
-  fetch(INTEL_URL+'?_cb='+Date.now()).then(function(r){return r.json();}).then(function(rows){
-    if(!Array.isArray(rows))return;
-    var grouped={};
-    rows.forEach(function(r){
-      if(!r.person||!r.note)return;
-      if(!grouped[r.person])grouped[r.person]=[];
-      grouped[r.person].push({
-        note:r.note,
-        sentiment:r.sentiment||'',
-        who:r.who||'',
-        when:r.when||''
+  var cbName='__intelCb'+Date.now();
+  window[cbName]=function(rows){
+    try{
+      if(!Array.isArray(rows)){delete window[cbName];return;}
+      var grouped={};
+      rows.forEach(function(r){
+        if(!r.person||!r.note)return;
+        if(!grouped[r.person])grouped[r.person]=[];
+        grouped[r.person].push({
+          note:r.note,
+          sentiment:r.sentiment||'',
+          who:r.who||'',
+          when:r.when||''
+        });
       });
-    });
-    INTEL_BY_PERSON=grouped;
-    if(expandedIdx!==null)renderCards();
-  }).catch(function(err){console.error('Intel load failed:',err);});
+      INTEL_BY_PERSON=grouped;
+      if(expandedIdx!==null)renderCards();
+    }finally{
+      delete window[cbName];
+      if(s&&s.parentNode)s.parentNode.removeChild(s);
+    }
+  };
+  var s=document.createElement('script');
+  s.src=INTEL_URL+'?callback='+cbName+'&_cb='+Date.now();
+  s.onerror=function(){
+    console.error('Intel load failed - check you are signed into Govini Google account');
+    delete window[cbName];
+    if(s.parentNode)s.parentNode.removeChild(s);
+  };
+  document.body.appendChild(s);
 }
 
 function toggle(idx){expandedIdx=expandedIdx===idx?null:idx;renderCards();}
